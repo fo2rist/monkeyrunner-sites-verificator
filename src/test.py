@@ -2,6 +2,7 @@
 # Imports the monkeyrunner modules used by this program
 from com.android.monkeyrunner import MonkeyRunner, MonkeyDevice
 
+from junit_xml import TestSuite, TestCase
 from os import system
 from os import path
 import os
@@ -13,7 +14,11 @@ import urllib
 FILENAMES_ENCODING = "utf-8"
 
 MAX_SHOTS_COUNT = 30
-
+# Max delta for first and last sceens
+MAX_BOUNDARY_DELTA = 500
+# Max delta for screen in the middle
+MAX_INTERMEDIATE_DELTA = 40000
+    
 BASE_PATH = "/home/dmitry/workspace/TEST-monkeyrunner"
 #COMPARE_LOCATION = BASE_PATH+"/im/compare.exe" #windows
 COMPARE_LOCATION = "/usr/bin/compare"         #linux
@@ -134,18 +139,33 @@ def getResultFile(url, shotNumber):
         "N":shotNumber}
     return filePath.decode(FILENAMES_ENCODING)
 
+### Analyze shots comparison
+### @return: whether comparison was successful
+def analyzeShots(shotDifferences):
+    if len(shotDifferences) == 0:
+        return False
+
+    # Check first and last
+    if shotDifferences[0] > MAX_BOUNDARY_DELTA or shotDifferences[-1] > MAX_BOUNDARY_DELTA:
+        return False
+    # Then other
+    for difference in shotDifferences[1:-1]:
+        if difference > MAX_INTERMEDIATE_DELTA:
+            return False
+    return True
 
 ### MAIN METHOD. Prepare samples
 def init():
     # Connects to the current device, and stop current browser instance
     device = connectAndSetup()
+    
     # Open list of ULS to check
     urlsFile = openUrlsList()
     # Open them one by one
     for url in urlsFile:
         openUrlOnDevice(device, url)
         
-        tempResultFile = ('%(path)s/assets/cmp_temp.png'%{ "path":BASE_PATH }).decode("utf-8")
+        tempResultFile = ('%(path)s/assets/cmp_temp.png'%{ "path":BASE_PATH }).decode(FILENAMES_ENCODING)
         
         shotNumber = 1
         #Loop for multiple screenshots with scroll
@@ -164,7 +184,7 @@ def init():
             #If it's not our first screen, compare with previous
             if shotNumber != 1:
                 difference = compareImages(oldFile, newFile, tempResultFile)
-                if difference < 100: # end of the page reached
+                if difference < MAX_BOUNDARY_DELTA: # end of the page reached
                     try:
                         os.remove(newFile)
                     finally:
@@ -173,12 +193,18 @@ def init():
                     break       
             
             shotNumber += 1
-    return
+    
+    urlsFile.close()
+    print "Done"
+    return#init
     
 ### MAIN METHOD. Compare samples with current snapshots
 def main():
     # Connects to the current device, and stop current browser instance
     device = connectAndSetup()
+    
+    #Create output object
+    outputTestCases = []
     
     # Open list of ULS to check
     urlsFile = openUrlsList()
@@ -187,6 +213,7 @@ def main():
     for url in urlsFile:
         openUrlOnDevice(device, url)
         
+        shotDifferences = [] # comparison results for every scroll
         shotNumber = 1
         #Loop for multiple screenshots with scroll
         while True:
@@ -206,10 +233,26 @@ def main():
             scrollBasedOnHeight(device)
             
             difference = compareImages(sampleFile, shotFile, resultFile)       
-            print "Checked", convertUriToName(url), "diff:",difference
+            shotDifferences.append(difference)
             
+            print "Checked", convertUriToName(url), shotNumber, "diff:",difference
             shotNumber += 1
-
+        
+        #Append page check result to output list
+        testCaseInfo = TestCase(url)
+        if not analyzeShots(shotDifferences):
+            testCaseInfo.add_failure_info("Failed comparison")
+        outputTestCases.append(testCaseInfo)
+        
+    #Write result as Junit xml
+    outputTestSuite = TestSuite("Screens check test suite", outputTestCases)
+    junitFile = open(BASE_PATH+"/results/output.xml", 'w')
+    TestSuite.to_file(junitFile, [outputTestSuite], prettyprint=False)
+    
+    junitFile.close()
+    urlsFile.close()
+    print "Done"
+    return#main
 
 # Run our code
 if len(sys.argv) > 1 and sys.argv[1] == "init":

@@ -2,3 +2,5 @@
 /assets/*.png
 /results/*.jpg
 /results/*.png
+/src/**$py.class
+/src/**/*$py.class
