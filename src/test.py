@@ -12,10 +12,11 @@ import sys
 import urllib
 
 FILENAMES_ENCODING = "utf-8"
+UTF8 = "utf-8"
 
 MAX_SHOTS_COUNT = 30
-# Max delta for first and last sceens
-MAX_BOUNDARY_DELTA = 500
+# Max delta for first and last screens
+MAX_BOUNDARY_DELTA = 3500
 # Max delta for screen in the middle
 MAX_INTERMEDIATE_DELTA = 40000
     
@@ -23,14 +24,25 @@ BASE_PATH = "/home/dmitry/workspace/TEST-monkeyrunner"
 #COMPARE_LOCATION = BASE_PATH+"/im/compare.exe" #windows
 COMPARE_LOCATION = "/usr/bin/compare"         #linux
 
-# browser package's internal name
-package = 'com.android.browser'
-# browser Activity in the package
-activity = 'com.android.browser.BrowserActivity'
+#Known browsers
+BROWSER_ANDROID = {"package":"com.android.browser",
+                   "activity": "com.android.browser.BrowserActivity"}
+BROWSER_CHROME = {"package":"com.android.chrome",
+                   "activity": "com.google.android.apps.chrome.Main"}
+BROWSER_FIREFOX = {"package":"org.mozilla.firefox",
+                   "activity": "org.mozilla.firefox.App"}
+BROWSER_OPERA = {"package":"com.opera.browser",
+                   "activity": "com.opera.Opera"}
+
+
 # browser component to start
-runComponent = package + '/' + activity
-
-
+browserToTest = BROWSER_ANDROID # <-CHANGE HERE TO SELECT BROWSER
+                                # set None to use system default, but in that case browser won't start clean
+if browserToTest is not None :
+    runComponent = browserToTest.get("package") + '/' + browserToTest.get("activity")
+else:
+    runComponent = None
+ 
 #Device screen size should be set up
 height = 0
 width = 0
@@ -55,7 +67,8 @@ def connectAndSetup():
     width = int(device.getProperty("display.width"))
     
     # kill current instance
-    device.shell('am force-stop ' + package)
+    if browserToTest is not None :
+        device.shell('am force-stop ' + browserToTest.get("package"))
     
     return device
 
@@ -71,7 +84,11 @@ def scrollBasedOnHeight(device):
 ### Open url in browser and wait for load
 def openUrlOnDevice(device, url):
     # Runs the component to view URL
-    device.startActivity(action="android.intent.action.VIEW", component=runComponent, data=url)
+    if (runComponent is None):
+        device.startActivity(action="android.intent.action.VIEW", data=url) #Old way to test deault sytem browser
+    else:
+        device.startActivity(component=runComponent, uri=url) #Launch known browser by package name
+    
     # Wait for load
     MonkeyRunner.sleep(12)
 
@@ -139,6 +156,18 @@ def getResultFile(url, shotNumber):
         "N":shotNumber}
     return filePath.decode(FILENAMES_ENCODING)
 
+
+### Take snapshot on given device and store it to file
+### @return: whether image was captured
+def takeSnapshotToFile(device, file):
+    image = device.takeSnapshot()
+    if image is not None: 
+        image.writeToFile(file, 'png')
+        return True
+    else:
+        return False
+
+
 ### Analyze shots comparison
 ### @return: whether comparison was successful
 def analyzeShots(shotDifferences):
@@ -153,6 +182,7 @@ def analyzeShots(shotDifferences):
         if difference > MAX_INTERMEDIATE_DELTA:
             return False
     return True
+
 
 ### MAIN METHOD. Prepare samples
 def init():
@@ -174,7 +204,9 @@ def init():
             newFile = getSampleFile(url, shotNumber)
                         
             # Take a screenshot and write to a file
-            device.takeSnapshot().writeToFile(newFile, 'png')
+            if not takeSnapshotToFile(device, newFile):
+                print "Unable to take snapshot for:", convertUriToName(url)
+                break
             
             # scroll for next show
             scrollBasedOnHeight(device)
@@ -227,25 +259,29 @@ def main():
                 break;
             
             # Take a screenshot and write to a file
-            device.takeSnapshot().writeToFile(shotFile, 'png')
-             
-            # scroll for next show
-            scrollBasedOnHeight(device)
-            
-            difference = compareImages(sampleFile, shotFile, resultFile)       
-            shotDifferences.append(difference)
-            
-            print "Checked", convertUriToName(url), shotNumber, "diff:",difference
-            shotNumber += 1
+            if takeSnapshotToFile(device, shotFile):
+                # scroll for next show
+                scrollBasedOnHeight(device)
+                
+                difference = compareImages(sampleFile, shotFile, resultFile)       
+                shotDifferences.append(difference)
+                
+                print "Checked", convertUriToName(url), shotNumber, "diff:",difference
+                shotNumber += 1
+            else: #shot was not taken
+                #Set max difference as error and break loop       
+                shotDifferences.append(MAX_INTERMEDIATE_DELTA+1)
+                print "Unable to take snapshot for:", convertUriToName(url)
+                break;
         
         #Append page check result to output list
-        testCaseInfo = TestCase(url)
+        testCaseInfo = TestCase(url.decode(UTF8))
         if not analyzeShots(shotDifferences):
             testCaseInfo.add_failure_info("Failed comparison")
         outputTestCases.append(testCaseInfo)
         
     #Write result as Junit xml
-    outputTestSuite = TestSuite("Screens check test suite", outputTestCases)
+    outputTestSuite = TestSuite("Screens check test suite".decode(UTF8), outputTestCases)
     junitFile = open(BASE_PATH+"/results/output.xml", 'w')
     TestSuite.to_file(junitFile, [outputTestSuite], prettyprint=False)
     

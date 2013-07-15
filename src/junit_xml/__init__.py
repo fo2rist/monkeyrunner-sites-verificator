@@ -65,7 +65,7 @@ class TestSuite(object):
         """Builds the XML document for the JUnit test suite"""
         # build the test suite element
         test_suite_attributes = dict()
-        test_suite_attributes['name'] = str(self.name)
+        test_suite_attributes['name'] = self.name #Changed from str(self.name)
         test_suite_attributes['failures'] = str(len([c for c in self.test_cases if c.is_failure()]))
         test_suite_attributes['errors'] = str(len([c for c in self.test_cases if c.is_error()]))
         test_suite_attributes['skipped'] = str(len([c for c in self.test_cases if c.is_skipped()]))
@@ -93,7 +93,7 @@ class TestSuite(object):
         # test cases
         for case in self.test_cases:
             test_case_attributes = dict()
-            test_case_attributes['name'] = str(case.name)
+            test_case_attributes['name'] = case.name#Changed from str(case.name)
             if case.elapsed_sec:
                 test_case_attributes['time'] = "%f" % case.elapsed_sec
             if case.classname:
