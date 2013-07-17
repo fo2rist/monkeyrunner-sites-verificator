@@ -76,10 +76,6 @@ def connectAndSetup():
     global width
     width = int(device.getProperty("display.width"))
     
-    # kill current instance
-    if browserToTest is not None :
-        device.shell('am force-stop ' + browserToTest.get("package"))
-    
     return device
 
 
@@ -97,6 +93,8 @@ def openUrlOnDevice(device, url):
     if (runComponent is None):
         device.startActivity(action="android.intent.action.VIEW", data=url) #Old way to test deault sytem browser
     else:
+        device.shell('am force-stop ' + browserToTest.get("package"))
+        MonkeyRunner.sleep(3)
         device.startActivity(component=runComponent, uri=url) #Launch known browser by package name
     
     # Wait for load
@@ -226,6 +224,7 @@ def init():
             #If it's not our first screen, compare with previous
             if shotNumber != 1:
                 difference = compareImages(oldFile, newFile, tempResultFile)
+                print "difference", difference
                 if difference < MAX_BOUNDARY_DELTA: # end of the page reached
                     try:
                         os.remove(newFile)
