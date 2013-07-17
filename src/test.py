@@ -2,7 +2,6 @@
 # Imports the monkeyrunner modules used by this program
 from com.android.monkeyrunner import MonkeyRunner, MonkeyDevice
 
-from junit_xml import TestSuite, TestCase
 from os import system
 from os import path
 import os
@@ -10,6 +9,7 @@ import shlex
 from subprocess import Popen, PIPE
 import sys
 import urllib
+
 
 FILENAMES_ENCODING = "utf-8"
 UTF8 = "utf-8"
@@ -19,10 +19,20 @@ MAX_SHOTS_COUNT = 30
 MAX_BOUNDARY_DELTA = 3500
 # Max delta for screen in the middle
 MAX_INTERMEDIATE_DELTA = 40000
-    
-BASE_PATH = "/home/dmitry/workspace/TEST-monkeyrunner"
-#COMPARE_LOCATION = BASE_PATH+"/im/compare.exe" #windows
-COMPARE_LOCATION = "/usr/bin/compare"         #linux
+
+#Change this two lines depending on platform
+IS_ON_WINDOWS = True    
+BASE_PATH = "C:/Users/dima/workspace/TEST-monkeyrunner"
+if IS_ON_WINDOWS:
+    COMPARE_LOCATION = BASE_PATH+"/im/compare.exe" #windows
+    import imp#dirty hack
+    junit_xml = imp.load_source('junit_xml', BASE_PATH+'/junit_xml/__init__.py')
+    TestSuite = junit_xml.TestSuite
+    TestCase = junit_xml.TestCase
+else:
+    COMPARE_LOCATION = "/usr/bin/compare"         #linux
+    from junit_xml import TestSuite, TestCase
+
 
 #Known browsers
 BROWSER_ANDROID = {"package":"com.android.browser",
