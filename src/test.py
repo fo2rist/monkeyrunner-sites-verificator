@@ -16,21 +16,21 @@ UTF8 = "utf-8"
 
 MAX_SHOTS_COUNT = 30
 # Max delta for first and last screens
-MAX_BOUNDARY_DELTA = 3500
+MAX_BOUNDARY_DELTA = 1500
 # Max delta for screen in the middle
-MAX_INTERMEDIATE_DELTA = 40000
+MAX_INTERMEDIATE_DELTA = 3000
 
 #Change this two lines depending on platform
-IS_ON_WINDOWS = True    
-BASE_PATH = "C:/Users/dima/workspace/TEST-monkeyrunner"
+IS_ON_WINDOWS = False    
+BASE_PATH = "/home/dmitry/workspace/TEST-monkeyrunner"
 if IS_ON_WINDOWS:
-    COMPARE_LOCATION = BASE_PATH+"/im/compare.exe" #windows
+    compareLocation = BASE_PATH+"/im/compare.exe" #windows
     import imp#dirty hack
     junit_xml = imp.load_source('junit_xml', BASE_PATH+'/junit_xml/__init__.py')
     TestSuite = junit_xml.TestSuite
     TestCase = junit_xml.TestCase
 else:
-    COMPARE_LOCATION = "/usr/bin/compare"         #linux
+    compareLocation = "/usr/bin/compare"         #linux
     from junit_xml import TestSuite, TestCase
 
 
@@ -80,11 +80,26 @@ def connectAndSetup():
 
 
 ### Scroll one screen.
-def scrollBasedOnHeight(device):
-    device.drag((1, height - typicalButtonBar - 4),
-                (1, typicalHeader + 4),
+### @param compensation:  compensation of previously done over-scroll in pixels
+def scrollOneScreen(device, compensation = 0):
+    borderGap = 10
+    startPoint = height - typicalButtonBar - borderGap
+    endPoint = typicalHeader + borderGap
+    if compensation > 0:
+        endPoint = min(endPoint + compensation, startPoint)
+    elif compensation < 0:
+        #in case of under we have no more space to operate
+        compensationStep = min (-compensation, borderGap)
+        #so we over-scroll just a little bit
+        endPoint -= compensationStep/2
+        startPoint += compensationStep/2
+    
+    device.drag((1, startPoint),
+                (1, endPoint),
                 2.4,
                 10)
+    #Give some time to hide scroll
+    MonkeyRunner.sleep(1)
 
 
 ### Open url in browser and wait for load
@@ -109,7 +124,7 @@ def compareImages(first, second, result):
                    ' "%(second)s"'\
                    ' "%(result)s"'%{
                                  "area": str(width)+"x"+str(height-typicalHeader)+"+0+"+str(typicalHeader),
-                                 "compare": COMPARE_LOCATION,
+                                 "compare": compareLocation,
                                  "first": first,
                                  "second": second,
                                  "result": result }
@@ -126,6 +141,38 @@ def compareImages(first, second, result):
         
     return difference
 
+### Compare two image via imagemagick
+### Search small image in the bigger one
+### @return: tuple 
+###         -difference as a number, or -1 in case of errors
+###         -overscroll made by second image, it's negative for underscroll
+def searchForIntersection(large, small, result):
+    gap = 10 # gap to crop second image from botton and top
+    compareStr = '%(compare)s -metric AE -subimage-search '\
+                   ' "%(large)s"'\
+                   ' "%(small)s"[%(area)s] '\
+                   ' "%(result)s"'%{
+                                 "area": str(width)+"x"+str(height - typicalHeader - gap*2)+"+0+"+str(typicalHeader + gap),
+                                 "compare": compareLocation,
+                                 "large": large,
+                                 "small": small,
+                                 "result": result }
+    #system(compareStr) #Old way to run
+    process = Popen(shlex.split(compareStr), stderr=PIPE)
+    result = process.communicate()
+    exit_code = process.wait()
+    
+    difference = -1
+    overscroll = 0
+    try:
+        (diffStr, offsetStr) = result[1].strip().split(" @ ")
+        difference = int(diffStr)
+        offset = int(offsetStr.split(",")[1])
+        overscroll = offset - typicalHeader - gap
+    except:
+        print "Bad response:", result
+        
+    return (difference, overscroll)
 
 ### Extract host and path, and replace denied symbols.        
 def convertUriToName(uri):
@@ -159,7 +206,7 @@ def getShotFile(url, shotNumber):
 
 ### Get filename for comparison file in results dir
 def getResultFile(url, shotNumber):
-    filePath = '%(path)s/results/cmp_%(url)s_%(N)i.jpg' % {"path":BASE_PATH, 
+    filePath = '%(path)s/results/cmp_%(url)s_%(N)i.gif' % {"path":BASE_PATH, 
         "url":convertUriToName(url), 
         "N":shotNumber}
     return filePath.decode(FILENAMES_ENCODING)
@@ -216,9 +263,6 @@ def init():
                 print "Unable to take snapshot for:", convertUriToName(url)
                 break
             
-            # scroll for next show
-            scrollBasedOnHeight(device)
-            
             print "Prepared", convertUriToName(url), shotNumber
             
             #If it's not our first screen, compare with previous
@@ -232,6 +276,9 @@ def init():
                         break
                 if shotNumber == MAX_SHOTS_COUNT: # or max number of screen reached
                     break       
+            
+            # scroll for next show
+            scrollOneScreen(device)
             
             shotNumber += 1
     
@@ -265,23 +312,27 @@ def main():
                    
             # We will go through all samples for that page
             if not path.exists(sampleFile):
-                break;
+                break
             
             # Take a screenshot and write to a file
             if takeSnapshotToFile(device, shotFile):
-                # scroll for next show
-                scrollBasedOnHeight(device)
                 
-                difference = compareImages(sampleFile, shotFile, resultFile)       
+                (difference, overscroll) = searchForIntersection(sampleFile, shotFile, resultFile)       
                 shotDifferences.append(difference)
                 
-                print "Checked", convertUriToName(url), shotNumber, "diff:",difference
+                print "Checked", convertUriToName(url), shotNumber, "diff:", difference, "overscroll:", overscroll
+                if difference == -1: #Got an error -> stop processing 
+                    print "Unable to find similarity between images. Stop further page processing for:", url
+                    break
+                
+                # scroll for next show
+                scrollOneScreen(device, overscroll)
                 shotNumber += 1
             else: #shot was not taken
                 #Set max difference as error and break loop       
                 shotDifferences.append(MAX_INTERMEDIATE_DELTA+1)
                 print "Unable to take snapshot for:", convertUriToName(url)
-                break;
+                break
         
         #Append page check result to output list
         testCaseInfo = TestCase(url.decode(UTF8))
