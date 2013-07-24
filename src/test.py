@@ -100,6 +100,16 @@ def scrollOneScreen(device, compensation = 0):
                 (1, endPoint),
                 2.4,
                 10)
+    #Android
+    #2.4,
+    #10
+    #Opera
+    #0.4
+    #20
+    #Firefox
+    #0.4
+    #20
+    
     #Give some time to hide scroll
     MonkeyRunner.sleep(1)
 
