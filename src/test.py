@@ -16,9 +16,9 @@ UTF8 = "utf-8"
 
 MAX_SHOTS_COUNT = 30
 # Max delta for first and last screens
-MAX_BOUNDARY_DELTA = 1500
+MAX_BOUNDARY_DELTA = 500
 # Max delta for screen in the middle
-MAX_INTERMEDIATE_DELTA = 3000
+MAX_INTERMEDIATE_DELTA = 3500
 
 #Change this two lines depending on platform
 IS_ON_WINDOWS = False    
@@ -69,7 +69,9 @@ def openUrlsList():
 ### @return:  device
 def connectAndSetup():
     # Connects to the current device, returning a MonkeyDevice object
+    print "Waiting for device"
     device = MonkeyRunner.waitForConnection()
+    print "Device connected "
     
     global height
     height = int(device.getProperty("display.height"))
@@ -119,7 +121,7 @@ def openUrlOnDevice(device, url):
 ### Compare two image via imagemagick
 ### @return: difference as a number, or -1 in case of errors
 def compareImages(first, second, result):
-    compareStr = '%(compare)s -metric AE -extract %(area)s '\
+    compareStr = '%(compare)s -metric RMSE -extract %(area)s '\
                    ' "%(first)s"'\
                    ' "%(second)s"'\
                    ' "%(result)s"'%{
@@ -135,7 +137,7 @@ def compareImages(first, second, result):
     
     difference = -1
     try:
-        difference = int(result[1])
+        difference = float(result[1].split(" ")[0])
     except:
         print "Bad response:", result
         
@@ -148,9 +150,9 @@ def compareImages(first, second, result):
 ###         -overscroll made by second image, it's negative for underscroll
 def searchForIntersection(large, small, result):
     gap = 10 # gap to crop second image from botton and top
-    compareStr = '%(compare)s -metric AE -subimage-search '\
+    compareStr = '%(compare)s -metric RMSE -subimage-search -dissimilarity-threshold 0.5'\
                    ' "%(large)s"'\
-                   ' "%(small)s"[%(area)s] '\
+                   ' "%(small)s"[%(area)s]'\
                    ' "%(result)s"'%{
                                  "area": str(width)+"x"+str(height - typicalHeader - gap*2)+"+0+"+str(typicalHeader + gap),
                                  "compare": compareLocation,
@@ -166,9 +168,10 @@ def searchForIntersection(large, small, result):
     overscroll = 0
     try:
         (diffStr, offsetStr) = result[1].strip().split(" @ ")
-        difference = int(diffStr)
+        difference = float(diffStr.split(" ")[0])
         offset = int(offsetStr.split(",")[1])
-        overscroll = offset - typicalHeader - gap
+        #Offset may be 0 se we'll just ignore it
+        overscroll =  0 if (offset == 0) else offset - typicalHeader - gap
     except:
         print "Bad response:", result
         
@@ -215,12 +218,21 @@ def getResultFile(url, shotNumber):
 ### Take snapshot on given device and store it to file
 ### @return: whether image was captured
 def takeSnapshotToFile(device, file):
-    image = device.takeSnapshot()
-    if image is not None: 
-        image.writeToFile(file, 'png')
-        return True
-    else:
-        return False
+    image = None
+    #will try to take screen N times
+    triesLeft = 3
+    while triesLeft > 0:
+        try:
+            image = device.takeSnapshot()
+            image.writeToFile(file, 'png')
+            return True
+        except:
+            #try to reconnect
+            triesLeft -= 1
+            print "Unable to take snapshot, trying to reconnect. Tries left:", triesLeft
+            device = MonkeyRunner.waitForConnection(4) #4 seconds
+
+    return False
 
 
 ### Analyze shots comparison
@@ -321,9 +333,10 @@ def main():
                 shotDifferences.append(difference)
                 
                 print "Checked", convertUriToName(url), shotNumber, "diff:", difference, "overscroll:", overscroll
-                if difference == -1: #Got an error -> stop processing 
-                    print "Unable to find similarity between images. Stop further page processing for:", url
-                    break
+                if difference == -1: #Got an error -> stop processing
+                    print "Unable to find similarity between images. WARNING"
+                    #print "Unable to find similarity between images. Stop further page processing for:", url
+                    #break
                 
                 # scroll for next show
                 scrollOneScreen(device, overscroll)
