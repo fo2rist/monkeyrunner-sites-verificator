@@ -17,7 +17,7 @@ BROWSER_OPERA = {"package":"com.opera.browser",
 ### Use one of known browsers or
 ### set None to use system default, but in that case browser won't start clean
 BROWSER_TO_TEST = BROWSER_CHROME
-                                
+
 ### Encoding for filenames. By default utf-8 is the best choise.
 FILENAMES_ENCODING = "utf-8"
 
@@ -29,12 +29,9 @@ MAX_BOUNDARY_DELTA = 500
 MAX_INTERMEDIATE_DELTA = 3500
 
 
-### Script location. Required to store files and to load modules on Windows
-BASE_PATH = "/home/dmitry/workspace/TEST-monkeyrunner"
-
 # Path to "compare" utility from Image Magick package.    
-#IM_COMPARE_PATH = BASE_PATH+"/im/compare.exe" #windows typical path
-IM_COMPARE_PATH = "/usr/bin/compare" #linux typical path
+IM_COMPARE_PATH = "./im/compare.exe" #windows typical path
+#IM_COMPARE_PATH = "/usr/bin/compare" #linux typical path
 
 # Typical device parameters.
 ### Height of bar that script will ignore at the top of screen

@@ -2,7 +2,7 @@
 # Imports the monkeyrunner modules used by this program
 from com.android.monkeyrunner import MonkeyRunner, MonkeyDevice
 
-from os import system
+#from os import system
 from os import path
 import os
 import re
@@ -11,24 +11,29 @@ from subprocess import Popen, PIPE
 import sys
 import urllib
 
-from config import *
 
 #Device screen size. Will be detected during connection
 height = 0
 width = 0
 
+filepath = path.split(os.path.realpath(__file__))[0]
+BASE_PATH = path.split(filepath)[0]
+
 try:
+    import config
     from junit_xmls import TestSuite, TestCase
 except ImportError:
     #dirty hack that loads 3rd party modules from script's dir not from working dir, which is always changed by windows monkeyrynner
     import imp
+    
+    config = imp.load_source('config', BASE_PATH+'/src/config.py')
     junit_xml = imp.load_source('junit_xml', BASE_PATH+'/src/junit_xml/__init__.py')
     TestSuite = junit_xml.TestSuite
     TestCase = junit_xml.TestCase
 
 
-if BROWSER_TO_TEST is not None :
-    runComponent = BROWSER_TO_TEST.get("package") + '/' + BROWSER_TO_TEST.get("activity")
+if config.BROWSER_TO_TEST is not None :
+    runComponent = config.BROWSER_TO_TEST.get("package") + '/' + config.BROWSER_TO_TEST.get("activity")
 else:
     runComponent = None
 
@@ -38,6 +43,14 @@ else:
 ### @param lastChance used to retry connection once in case of fast failure
 ### @return:  device or None if device not connected or preconditions are not meet. 
 def connectAndSetup(lastChance = False):
+    #Prepare folders
+    assetsFolder = path.join(BASE_PATH, "assets")
+    if not path.exists(assetsFolder):
+        os.makedirs(assetsFolder)
+    resultsFolder = path.join(BASE_PATH, "results")
+    if not path.exists(resultsFolder):
+        os.makedirs(resultsFolder)
+    
     print "Waiting for device..."
     device = MonkeyRunner.waitForConnection()
     print "Device connected. "
@@ -62,9 +75,9 @@ def connectAndSetup(lastChance = False):
     
     #Check selected browser existence (if browser not set to default)
     if (runComponent is not None):
-        packagePath = device.shell('pm path ' + BROWSER_TO_TEST.get("package"))
+        packagePath = device.shell('pm path ' + config.BROWSER_TO_TEST.get("package"))
         if (not packagePath.startswith("package:")):
-            print "Browser '%s' is not installed. Unable to test."%BROWSER_TO_TEST.get("package")
+            print "Browser '%s' is not installed. Unable to test."%config.BROWSER_TO_TEST.get("package")
             return None;
     
     return device
@@ -82,6 +95,8 @@ def isLocked(device):
 
 ### Open file with list of URLs
 def openUrlsList():
+    #import codecs
+    #return codecs.open(BASE_PATH + "/assets/urls.txt", "r", "CP1251")
     return open(BASE_PATH + "/assets/urls.txt", 'r')
 
 
@@ -89,8 +104,8 @@ def openUrlsList():
 ### @param compensation:  compensation of previously done over-scroll in pixels
 def scrollOneScreen(device, compensation = 0):
     borderGap = 10
-    startPoint = height - BUTTON_BAR_HEIGHT - borderGap
-    endPoint = HEADER_HEIGHT + borderGap
+    startPoint = height - config.BUTTON_BAR_HEIGHT - borderGap
+    endPoint = config.HEADER_HEIGHT + borderGap
     if compensation > 0:
         endPoint = min(endPoint + compensation, startPoint)
     elif compensation < 0:
@@ -126,7 +141,7 @@ def openUrlOnDevice(device, url):
         device.startActivity(action="android.intent.action.VIEW", data=url)
     else:
         #Re-launch known browser by package name
-        device.shell('am force-stop ' + BROWSER_TO_TEST.get("package"))
+        device.shell('am force-stop ' + config.BROWSER_TO_TEST.get("package"))
         MonkeyRunner.sleep(3)
         
         device.startActivity(component=runComponent, uri=url)
@@ -142,8 +157,8 @@ def compareImages(first, second, result):
                    ' "%(first)s"'\
                    ' "%(second)s"'\
                    ' "%(result)s"'%{
-                                 "area": str(width)+"x"+str(height-HEADER_HEIGHT)+"+0+"+str(HEADER_HEIGHT),
-                                 "compare": IM_COMPARE_PATH,
+                                 "area": str(width)+"x"+str(height-config.HEADER_HEIGHT)+"+0+"+str(config.HEADER_HEIGHT),
+                                 "compare": config.IM_COMPARE_PATH,
                                  "first": first,
                                  "second": second,
                                  "result": result }
@@ -171,8 +186,8 @@ def searchForIntersection(large, small, result):
                    ' "%(large)s"'\
                    ' "%(small)s"[%(area)s]'\
                    ' "%(result)s"'%{
-                                 "area": str(width)+"x"+str(height - HEADER_HEIGHT - gap*2)+"+0+"+str(HEADER_HEIGHT + gap),
-                                 "compare": IM_COMPARE_PATH,
+                                 "area": str(width)+"x"+str(height - config.HEADER_HEIGHT - gap*2)+"+0+"+str(config.HEADER_HEIGHT + gap),
+                                 "compare": config.IM_COMPARE_PATH,
                                  "large": large,
                                  "small": small,
                                  "result": result }
@@ -188,15 +203,16 @@ def searchForIntersection(large, small, result):
         difference = float(diffStr.split(" ")[0])
         offset = int(offsetStr.split(",")[1])
         #Offset may be 0 se we'll just ignore it
-        overscroll =  0 if (offset == 0) else offset - HEADER_HEIGHT - gap
+        overscroll =  0 if (offset == 0) else offset - config.HEADER_HEIGHT - gap
     except:
         print "Bad response:", result
         
     return (difference, overscroll)
 
-### Extract host and path, and replace denied symbols.        
+### Extract host and path, and replace denied symbols.
 def convertUriToName(uri):
-    return urllib.unquote(uri).replace("http://", "")\
+    return urllib.unquote(uri)\
+            .replace("http://", "")\
             .replace("https://", "")\
             .replace("/", "_")\
             .replace("\\", "_")\
@@ -211,25 +227,25 @@ def convertUriToName(uri):
 ### Get filename for snaposhot in samples dir
 def getSampleFile(url, shotNumber):
     filePath = '%(path)s/assets/%(url)s_%(N)i.png' % {"path":BASE_PATH,
-        "url":convertUriToName(url),
+        "url":convertUriToName(url), #.decode(config.FILENAMES_ENCODING),
         "N":shotNumber }
-    return filePath.decode(FILENAMES_ENCODING)
+    return filePath.decode(config.FILENAMES_ENCODING)
 
 
 ### Get filename for snaposhot in results dir
 def getShotFile(url, shotNumber):
     filePath = '%(path)s/results/%(url)s_%(N)i.png' % {"path":BASE_PATH, 
-        "url":convertUriToName(url), 
+        "url":convertUriToName(url), #.decode(config.FILENAMES_ENCODING), 
         "N":shotNumber}
-    return filePath.decode(FILENAMES_ENCODING)
+    return filePath.decode(config.FILENAMES_ENCODING)
 
 
 ### Get filename for comparison file in results dir
 def getResultFile(url, shotNumber):
     filePath = '%(path)s/results/cmp_%(url)s_%(N)i.gif' % {"path":BASE_PATH, 
-        "url":convertUriToName(url), 
+        "url":convertUriToName(url), #.decode(config.FILENAMES_ENCODING), 
         "N":shotNumber}
-    return filePath.decode(FILENAMES_ENCODING)
+    return filePath.decode(config.FILENAMES_ENCODING)
 
 
 ### Take snapshot on given device and store it to file
@@ -259,11 +275,11 @@ def analyzeShots(shotDifferences):
         return False
 
     # Check first and last
-    if shotDifferences[0] > MAX_BOUNDARY_DELTA or shotDifferences[-1] > MAX_BOUNDARY_DELTA:
+    if shotDifferences[0] > config.MAX_BOUNDARY_DELTA or shotDifferences[-1] > config.MAX_BOUNDARY_DELTA:
         return False
     # Then other
     for difference in shotDifferences[1:-1]:
-        if difference > MAX_INTERMEDIATE_DELTA:
+        if difference > config.MAX_INTERMEDIATE_DELTA:
             return False
     return True
 
@@ -278,9 +294,12 @@ def init():
     urlsFile = openUrlsList()
     # Open them one by one
     for url in urlsFile:
+    	#DEBUG
+        #url = url.encode("utf-8")
+        url = url.strip()
         openUrlOnDevice(device, url)
         
-        tempResultFile = ('%(path)s/assets/cmp_temp.png'%{ "path":BASE_PATH }).decode(FILENAMES_ENCODING)
+        tempResultFile = ('%(path)s/assets/cmp_temp.png'%{ "path":BASE_PATH }).decode(config.FILENAMES_ENCODING)
         
         shotNumber = 1
         #Loop for multiple screenshots with scroll
@@ -299,12 +318,12 @@ def init():
             if shotNumber != 1:
                 difference = compareImages(oldFile, newFile, tempResultFile)
                 print "difference", difference
-                if difference < MAX_BOUNDARY_DELTA: # end of the page reached
+                if difference < config.MAX_BOUNDARY_DELTA: # end of the page reached
                     try:
                         os.remove(newFile)
                     finally:
                         break
-                if shotNumber == MAX_SHOTS_COUNT: # or max number of screen reached
+                if shotNumber == config.MAX_SHOTS_COUNT: # or max number of screen reached
                     break       
             
             # scroll for next show
@@ -330,6 +349,8 @@ def main():
     
     # Open them one by one
     for url in urlsFile:
+        #DEBUG
+        #url = url.encode("utf-8")
         url = url.strip()
         openUrlOnDevice(device, url)
         
@@ -365,7 +386,7 @@ def main():
                 shotNumber += 1
             else: #shot was not taken
                 #Set max difference as error and break loop       
-                shotDifferences.append(MAX_INTERMEDIATE_DELTA+1)
+                shotDifferences.append(config.MAX_INTERMEDIATE_DELTA+1)
                 print "Unable to take snapshot for:", convertUriToName(url)
                 break
         
