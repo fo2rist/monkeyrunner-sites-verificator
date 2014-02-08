@@ -1,6 +1,8 @@
 /assets/*.jpg
+/assets/*.gif
 /assets/*.png
 /results/*.jpg
+/results/*.gif
 /results/*.png
 /src/**$py.class
 /src/**/*$py.class

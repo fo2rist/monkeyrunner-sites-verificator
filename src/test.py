@@ -5,74 +5,47 @@ from com.android.monkeyrunner import MonkeyRunner, MonkeyDevice
 from os import system
 from os import path
 import os
+import re
 import shlex
 from subprocess import Popen, PIPE
 import sys
 import urllib
 
-#Encoding for filenames
-FILENAMES_ENCODING = "utf-8"
+from config import *
 
-### Max count of scrolls/shots, allow to limit scrolling of infinite pages
-MAX_SHOTS_COUNT = 30
-### Max delta for first and last screens
-MAX_BOUNDARY_DELTA = 500
-### Max delta for screen in the middle
-MAX_INTERMEDIATE_DELTA = 3500
-
-#Change this two lines depending on platform and script location
-IS_ON_WINDOWS = False    
-BASE_PATH = "/home/dmitry/workspace/TEST-monkeyrunner"
-if IS_ON_WINDOWS:
-    compareLocation = BASE_PATH+"/im/compare.exe" #windows
-    import imp#dirty hack
-    junit_xml = imp.load_source('junit_xml', BASE_PATH+'/junit_xml/__init__.py')
-    TestSuite = junit_xml.TestSuite
-    TestCase = junit_xml.TestCase
-else:
-    compareLocation = "/usr/bin/compare"         #linux
-    from junit_xml import TestSuite, TestCase
-
-
-#Known browsers
-BROWSER_ANDROID = {"package":"com.android.browser",
-                   "activity": "com.android.browser.BrowserActivity"}
-BROWSER_CHROME = {"package":"com.android.chrome",
-                   "activity": "com.google.android.apps.chrome.Main"}
-BROWSER_FIREFOX = {"package":"org.mozilla.firefox",
-                   "activity": "org.mozilla.firefox.App"}
-BROWSER_OPERA = {"package":"com.opera.browser",
-                   "activity": "com.opera.Opera"}
-
-
-# browser component to start
-browserToTest = BROWSER_CHROME # <-CHANGE HERE TO SELECT BROWSER
-                                # set None to use system default, but in that case browser won't start clean
-if browserToTest is not None :
-    runComponent = browserToTest.get("package") + '/' + browserToTest.get("activity")
-else:
-    runComponent = None
- 
-#Device screen size should be set up
+#Device screen size. Will be detected during connection
 height = 0
 width = 0
-typicalHeader = 144
-typicalButtonBar = 96
-    
 
-### Open file with list of URLs
-def openUrlsList():
-    return open(BASE_PATH + "/assets/urls.txt", 'r')
+try:
+    from junit_xmls import TestSuite, TestCase
+except ImportError:
+    #dirty hack that loads 3rd party modules from script's dir not from working dir, which is always changed by windows monkeyrynner
+    import imp
+    junit_xml = imp.load_source('junit_xml', BASE_PATH+'/src/junit_xml/__init__.py')
+    TestSuite = junit_xml.TestSuite
+    TestCase = junit_xml.TestCase
+
+
+if BROWSER_TO_TEST is not None :
+    runComponent = BROWSER_TO_TEST.get("package") + '/' + BROWSER_TO_TEST.get("activity")
+else:
+    runComponent = None
 
 
 ### Wait for monkey device, set global device info such as screen size
 ### Check preconditions for test run
+### @param lastChance used to retry connection once in case of fast failure
 ### @return:  device or None if device not connected or preconditions are not meet. 
-def connectAndSetup():
-    print "Waiting for device"
+def connectAndSetup(lastChance = False):
+    print "Waiting for device..."
     device = MonkeyRunner.waitForConnection()
-    print "Device connected "
-    
+    print "Device connected. "
+    #Wake device and unlock the screen
+    device.wake()
+    if (isLocked(device)):
+        print "Unlocking..."
+        device.press("KEYCODE_MENU", MonkeyDevice.DOWN_AND_UP) #Android's hacky way to unlock
     #Try to get device info
     try:
         global height
@@ -80,25 +53,44 @@ def connectAndSetup():
         global width
         width = int(device.getProperty("display.width"))
     except:
-        print "Can't get device screen size. Unable to test."
-        return None
+        if (not lastChance):
+            print "Device setup failed. Trying to reconnect."
+            return connectAndSetup(True) # Give a last chance
+        else:
+            print "Can't get device screen size. Unable to test."
+            return None
     
     #Check selected browser existence (if browser not set to default)
     if (runComponent is not None):
-        packagePath = device.shell('pm path ' + browserToTest.get("package"))
+        packagePath = device.shell('pm path ' + BROWSER_TO_TEST.get("package"))
         if (not packagePath.startswith("package:")):
-            print "Browser '%s' is not installed. Unable to test."%browserToTest.get("package")
+            print "Browser '%s' is not installed. Unable to test."%BROWSER_TO_TEST.get("package")
             return None;
     
     return device
+
+
+### Checks if the device screen is locked.
+### @return True if the device screen is locked
+def isLocked(device):
+    lockScreenRegexp = re.compile('mShowingLockscreen=(true|false)')
+    result = lockScreenRegexp.search(device.shell('dumpsys window policy'))
+    if result:
+        return (result.group(1) == 'true')
+    raise RuntimeError("Couldn't determine screen lock state")
+
+
+### Open file with list of URLs
+def openUrlsList():
+    return open(BASE_PATH + "/assets/urls.txt", 'r')
 
 
 ### Scroll one screen.
 ### @param compensation:  compensation of previously done over-scroll in pixels
 def scrollOneScreen(device, compensation = 0):
     borderGap = 10
-    startPoint = height - typicalButtonBar - borderGap
-    endPoint = typicalHeader + borderGap
+    startPoint = height - BUTTON_BAR_HEIGHT - borderGap
+    endPoint = HEADER_HEIGHT + borderGap
     if compensation > 0:
         endPoint = min(endPoint + compensation, startPoint)
     elif compensation < 0:
@@ -130,26 +122,28 @@ def scrollOneScreen(device, compensation = 0):
 def openUrlOnDevice(device, url):
     # Runs the component to view URL
     if (runComponent is None):
-        device.startActivity(action="android.intent.action.VIEW", data=url) #Old way to test deault sytem browser
+        #Launch default system browser
+        device.startActivity(action="android.intent.action.VIEW", data=url)
     else:
-        device.shell('am force-stop ' + browserToTest.get("package"))
+        #Re-launch known browser by package name
+        device.shell('am force-stop ' + BROWSER_TO_TEST.get("package"))
         MonkeyRunner.sleep(3)
-        #TODO make sure package is present
-        device.startActivity(component=runComponent, uri=url) #Launch known browser by package name
+        
+        device.startActivity(component=runComponent, uri=url)
     
     # Wait for load
     MonkeyRunner.sleep(12)
 
 
-### Compare two image via imagemagick
+### Compare two image via ImageMagick
 ### @return: difference as a number, or -1 in case of errors
 def compareImages(first, second, result):
     compareStr = '%(compare)s -metric RMSE -extract %(area)s '\
                    ' "%(first)s"'\
                    ' "%(second)s"'\
                    ' "%(result)s"'%{
-                                 "area": str(width)+"x"+str(height-typicalHeader)+"+0+"+str(typicalHeader),
-                                 "compare": compareLocation,
+                                 "area": str(width)+"x"+str(height-HEADER_HEIGHT)+"+0+"+str(HEADER_HEIGHT),
+                                 "compare": IM_COMPARE_PATH,
                                  "first": first,
                                  "second": second,
                                  "result": result }
@@ -177,8 +171,8 @@ def searchForIntersection(large, small, result):
                    ' "%(large)s"'\
                    ' "%(small)s"[%(area)s]'\
                    ' "%(result)s"'%{
-                                 "area": str(width)+"x"+str(height - typicalHeader - gap*2)+"+0+"+str(typicalHeader + gap),
-                                 "compare": compareLocation,
+                                 "area": str(width)+"x"+str(height - HEADER_HEIGHT - gap*2)+"+0+"+str(HEADER_HEIGHT + gap),
+                                 "compare": IM_COMPARE_PATH,
                                  "large": large,
                                  "small": small,
                                  "result": result }
@@ -194,7 +188,7 @@ def searchForIntersection(large, small, result):
         difference = float(diffStr.split(" ")[0])
         offset = int(offsetStr.split(",")[1])
         #Offset may be 0 se we'll just ignore it
-        overscroll =  0 if (offset == 0) else offset - typicalHeader - gap
+        overscroll =  0 if (offset == 0) else offset - HEADER_HEIGHT - gap
     except:
         print "Bad response:", result
         
