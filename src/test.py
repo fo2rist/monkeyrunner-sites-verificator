@@ -10,17 +10,17 @@ from subprocess import Popen, PIPE
 import sys
 import urllib
 
-
+#Encoding for filenames
 FILENAMES_ENCODING = "utf-8"
-UTF8 = "utf-8"
 
+### Max count of scrolls/shots, allow to limit scrolling of infinite pages
 MAX_SHOTS_COUNT = 30
-# Max delta for first and last screens
+### Max delta for first and last screens
 MAX_BOUNDARY_DELTA = 500
-# Max delta for screen in the middle
+### Max delta for screen in the middle
 MAX_INTERMEDIATE_DELTA = 3500
 
-#Change this two lines depending on platform
+#Change this two lines depending on platform and script location
 IS_ON_WINDOWS = False    
 BASE_PATH = "/home/dmitry/workspace/TEST-monkeyrunner"
 if IS_ON_WINDOWS:
@@ -46,7 +46,7 @@ BROWSER_OPERA = {"package":"com.opera.browser",
 
 
 # browser component to start
-browserToTest = BROWSER_ANDROID # <-CHANGE HERE TO SELECT BROWSER
+browserToTest = BROWSER_CHROME # <-CHANGE HERE TO SELECT BROWSER
                                 # set None to use system default, but in that case browser won't start clean
 if browserToTest is not None :
     runComponent = browserToTest.get("package") + '/' + browserToTest.get("activity")
@@ -65,18 +65,30 @@ def openUrlsList():
     return open(BASE_PATH + "/assets/urls.txt", 'r')
 
 
-### Wait for monkey device, set global device info and kill current browser instance.
-### @return:  device
+### Wait for monkey device, set global device info such as screen size
+### Check preconditions for test run
+### @return:  device or None if device not connected or preconditions are not meet. 
 def connectAndSetup():
-    # Connects to the current device, returning a MonkeyDevice object
     print "Waiting for device"
     device = MonkeyRunner.waitForConnection()
     print "Device connected "
     
-    global height
-    height = int(device.getProperty("display.height"))
-    global width
-    width = int(device.getProperty("display.width"))
+    #Try to get device info
+    try:
+        global height
+        height = int(device.getProperty("display.height"))
+        global width
+        width = int(device.getProperty("display.width"))
+    except:
+        print "Can't get device screen size. Unable to test."
+        return None
+    
+    #Check selected browser existence (if browser not set to default)
+    if (runComponent is not None):
+        packagePath = device.shell('pm path ' + browserToTest.get("package"))
+        if (not packagePath.startswith("package:")):
+            print "Browser '%s' is not installed. Unable to test."%browserToTest.get("package")
+            return None;
     
     return device
 
@@ -122,6 +134,7 @@ def openUrlOnDevice(device, url):
     else:
         device.shell('am force-stop ' + browserToTest.get("package"))
         MonkeyRunner.sleep(3)
+        #TODO make sure package is present
         device.startActivity(component=runComponent, uri=url) #Launch known browser by package name
     
     # Wait for load
@@ -263,8 +276,9 @@ def analyzeShots(shotDifferences):
 
 ### MAIN METHOD. Prepare samples
 def init():
-    # Connects to the current device, and stop current browser instance
     device = connectAndSetup()
+    if (device is None):
+        return
     
     # Open list of ULS to check
     urlsFile = openUrlsList()
@@ -310,8 +324,9 @@ def init():
     
 ### MAIN METHOD. Compare samples with current snapshots
 def main():
-    # Connects to the current device, and stop current browser instance
     device = connectAndSetup()
+    if (device is None):
+        return
     
     #Create output object
     outputTestCases = []
@@ -321,24 +336,27 @@ def main():
     
     # Open them one by one
     for url in urlsFile:
+        url = url.strip()
         openUrlOnDevice(device, url)
         
         shotDifferences = [] # comparison results for every scroll
         shotNumber = 1
         #Loop for multiple screenshots with scroll
         while True:
-            #Compare with default snapshot
+            # Resolve names of sample file, current snapshot and comparison result file
             sampleFile = getSampleFile(url, shotNumber)
             shotFile = getShotFile(url, shotNumber)
             resultFile = getResultFile(url, shotNumber)
                    
-            # We will go through all samples for that page
+            # Stop processing if don't have a sample
             if not path.exists(sampleFile):
+                if (shotNumber == 1):
+                    print "You don't have any sample for '%s'. Didn't you forget to call 'test init'?"%url
                 break
             
             # Take a screenshot and write to a file
             if takeSnapshotToFile(device, shotFile):
-                
+                #Compare with default snapshot
                 (difference, overscroll) = searchForIntersection(sampleFile, shotFile, resultFile)       
                 shotDifferences.append(difference)
                 
@@ -358,13 +376,13 @@ def main():
                 break
         
         #Append page check result to output list
-        testCaseInfo = TestCase(url.decode(UTF8))
+        testCaseInfo = TestCase(url.decode("utf-8"))
         if not analyzeShots(shotDifferences):
             testCaseInfo.add_failure_info("Failed comparison")
         outputTestCases.append(testCaseInfo)
         
     #Write result as Junit xml
-    outputTestSuite = TestSuite("Screens check test suite".decode(UTF8), outputTestCases)
+    outputTestSuite = TestSuite("Screens check test suite".decode("utf-8"), outputTestCases)
     junitFile = open(BASE_PATH+"/results/output.xml", 'w')
     TestSuite.to_file(junitFile, [outputTestSuite], prettyprint=False)
     
