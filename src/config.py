@@ -30,7 +30,7 @@ MAX_INTERMEDIATE_DELTA = 3500
 
 
 # Path to "compare" utility from Image Magick package.    
-IM_COMPARE_PATH = "./im/compare.exe" #windows typical path
+IM_COMPARE_PATH = "C:/Progra~1/ImageMagick/compare.exe" #windows typical path
 #IM_COMPARE_PATH = "/usr/bin/compare" #linux typical path
 
 # Typical device parameters.

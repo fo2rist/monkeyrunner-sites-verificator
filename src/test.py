@@ -306,7 +306,7 @@ def init():
         while True:
             oldFile = getSampleFile(url, shotNumber-1)
             newFile = getSampleFile(url, shotNumber)
-                        
+            
             # Take a screenshot and write to a file
             if not takeSnapshotToFile(device, newFile):
                 print "Unable to take snapshot for:", convertUriToName(url)
@@ -317,8 +317,10 @@ def init():
             #If it's not our first screen, compare with previous
             if shotNumber != 1:
                 difference = compareImages(oldFile, newFile, tempResultFile)
-                print "difference", difference
-                if difference < config.MAX_BOUNDARY_DELTA: # end of the page reached
+                
+                if difference == -1: #got difference calculation error, that's ok for scrolling
+                    pass
+                elif difference < config.MAX_BOUNDARY_DELTA: # end of the page reached
                     try:
                         os.remove(newFile)
                     finally:
