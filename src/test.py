@@ -11,13 +11,15 @@ from subprocess import Popen, PIPE
 import sys
 import urllib
 
+### Encoding for filenames. By default utf-8
+FILENAMES_ENCODING = "utf-8"
 
 #Device screen size. Will be detected during connection
 height = 0
 width = 0
 
 filepath = path.split(os.path.realpath(__file__))[0]
-BASE_PATH = path.split(filepath)[0]
+BASE_PATH = path.split(filepath)[0].encode(FILENAMES_ENCODING)
 
 try:
     import config
@@ -50,6 +52,9 @@ def connectAndSetup(lastChance = False):
     resultsFolder = path.join(BASE_PATH, "results")
     if not path.exists(resultsFolder):
         os.makedirs(resultsFolder)
+    if not path.exists(config.IM_COMPARE_PATH):
+        print "ImageMagick Compare wasn't found at '%s'. Please set correct IM_COMPARE_PATH."%config.IM_COMPARE_PATH
+        return None
     
     print "Waiting for device..."
     device = MonkeyRunner.waitForConnection()
@@ -227,25 +232,25 @@ def convertUriToName(uri):
 ### Get filename for snaposhot in samples dir
 def getSampleFile(url, shotNumber):
     filePath = '%(path)s/assets/%(url)s_%(N)i.png' % {"path":BASE_PATH,
-        "url":convertUriToName(url), #.decode(config.FILENAMES_ENCODING),
+        "url":convertUriToName(url),
         "N":shotNumber }
-    return filePath.decode(config.FILENAMES_ENCODING)
+    return filePath.decode(FILENAMES_ENCODING)
 
 
 ### Get filename for snaposhot in results dir
 def getShotFile(url, shotNumber):
     filePath = '%(path)s/results/%(url)s_%(N)i.png' % {"path":BASE_PATH, 
-        "url":convertUriToName(url), #.decode(config.FILENAMES_ENCODING), 
+        "url":convertUriToName(url), 
         "N":shotNumber}
-    return filePath.decode(config.FILENAMES_ENCODING)
+    return filePath.decode(FILENAMES_ENCODING)
 
 
 ### Get filename for comparison file in results dir
 def getResultFile(url, shotNumber):
     filePath = '%(path)s/results/cmp_%(url)s_%(N)i.gif' % {"path":BASE_PATH, 
-        "url":convertUriToName(url), #.decode(config.FILENAMES_ENCODING), 
+        "url":convertUriToName(url), 
         "N":shotNumber}
-    return filePath.decode(config.FILENAMES_ENCODING)
+    return filePath.decode(FILENAMES_ENCODING)
 
 
 ### Take snapshot on given device and store it to file
@@ -299,7 +304,7 @@ def init():
         url = url.strip()
         openUrlOnDevice(device, url)
         
-        tempResultFile = ('%(path)s/assets/cmp_temp.png'%{ "path":BASE_PATH }).decode(config.FILENAMES_ENCODING)
+        tempResultFile = ('%(path)s/assets/cmp_temp.png'%{ "path":BASE_PATH }).decode(FILENAMES_ENCODING)
         
         shotNumber = 1
         #Loop for multiple screenshots with scroll
@@ -412,4 +417,4 @@ def main():
 if len(sys.argv) > 1 and sys.argv[1] == "init":
     init()
 else:
-    main()
+     main()

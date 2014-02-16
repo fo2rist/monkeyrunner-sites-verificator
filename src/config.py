@@ -18,9 +18,6 @@ BROWSER_OPERA = {"package":"com.opera.browser",
 ### set None to use system default, but in that case browser won't start clean
 BROWSER_TO_TEST = BROWSER_CHROME
 
-### Encoding for filenames. By default utf-8 is the best choise.
-FILENAMES_ENCODING = "utf-8"
-
 ### Max count of scrolls/shots, allow to limit scrolling of infinite pages
 MAX_SHOTS_COUNT = 30
 ### Max delta for first and last screens
@@ -30,8 +27,8 @@ MAX_INTERMEDIATE_DELTA = 3500
 
 
 # Path to "compare" utility from Image Magick package.    
-IM_COMPARE_PATH = "C:/Progra~1/ImageMagick/compare.exe" #windows typical path
-#IM_COMPARE_PATH = "/usr/bin/compare" #linux typical path
+#IM_COMPARE_PATH = "C:/Progra~1/ImageMagick/compare.exe" #windows typical path
+IM_COMPARE_PATH = "/usr/bin/compare" #linux typical path
 
 # Typical device parameters.
 ### Height of bar that script will ignore at the top of screen
