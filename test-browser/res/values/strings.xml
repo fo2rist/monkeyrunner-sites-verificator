@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">TestBrowser</string>
+    <string name="action_reload">Reload</string>
+    <string name="action_stop">Stop Loading</string>
+    <string name="blank">blank</string>
 </resources>

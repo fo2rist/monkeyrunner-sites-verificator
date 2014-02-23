@@ -1,0 +1,14 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+    <item
+        android:id="@+id/action_reload"
+        android:icon="@drawable/ic_menu_reload"
+        android:title="@string/action_reload"
+        android:visible="false"
+        android:showAsAction="always"/>
+    <item
+        android:id="@+id/action_stop"
+        android:icon="@drawable/ic_menu_stop"
+        android:title="@string/action_stop"
+        android:visible="false"
+        android:showAsAction="always"/>
+</menu>
