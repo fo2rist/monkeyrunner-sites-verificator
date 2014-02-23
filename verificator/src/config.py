@@ -16,11 +16,13 @@ BROWSER_FIREFOX = {"package":"org.mozilla.firefox",
                    "activity": "org.mozilla.firefox.App"}
 BROWSER_OPERA = {"package":"com.opera.browser",
                    "activity": "com.opera.Opera"}
+BROWSER_TEST = {"package":"com.github.fo2rist.testbrowser",
+                   "activity": "com.github.fo2rist.testbrowser.MainActivity"}
 
 ### Browser component to start
 ### Use one of known browsers or
 ### set None to use system default, but in that case browser won't start clean
-BROWSER_TO_TEST = BROWSER_CHROME
+BROWSER_TO_TEST = BROWSER_TEST
 
 ### Max count of scrolls/shots, allow to limit scrolling of infinite pages
 MAX_SHOTS_COUNT = 30
