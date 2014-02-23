@@ -6,8 +6,12 @@
 
     <uses-sdk
         android:minSdkVersion="14"
-        android:targetSdkVersion="18" />
+        android:targetSdkVersion="19" />
 
+	<uses-permission android:name="android.permission.INTERNET"/>
+	<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+	<uses-permission android:name="android.permission.ACCESS_MOCK_LOCATION"/>
+	
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
@@ -15,11 +19,18 @@
         android:theme="@style/AppTheme" >
         <activity
             android:name="com.github.fo2rist.testbrowser.MainActivity"
-            android:label="@string/app_name" >
+            android:label="@string/app_name"
+            android:launchMode="singleTask" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+	            <action android:name="android.intent.action.VIEW" />
+	            <category android:name="android.intent.category.DEFAULT" />
+	            <category android:name="android.intent.category.BROWSABLE" />
+	            <data android:scheme="http" />
+	            <data android:scheme="https" />
             </intent-filter>
         </activity>
     </application>
