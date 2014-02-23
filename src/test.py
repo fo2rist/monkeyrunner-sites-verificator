@@ -1,4 +1,9 @@
 # -*- coding: utf-8
+#######################################
+# Created by Dmitry <fo2rist> Sitnikov
+# Licensed under LGPL v 
+#######################################
+
 # Imports the monkeyrunner modules used by this program
 from com.android.monkeyrunner import MonkeyRunner, MonkeyDevice
 

@@ -1,4 +1,8 @@
 # -*- coding: utf-8
+#######################################
+# Created by Dmitry <fo2rist> Sitnikov
+# Licensed under LGPL v 
+#######################################
 
 # This is the config file  
 # Change any parameter to suit your needs.
