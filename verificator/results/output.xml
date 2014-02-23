@@ -1,0 +1,1 @@
+<testsuites><testsuite errors="0" failures="1" name="Screens check test suite" skipped="0" tests="1" time="0"><testcase name="http://ru.wikipedia.org/wiki/&#1051;&#1086;&#1088;&#1077;&#1085;&#1094;,_&#1061;&#1077;&#1085;&#1076;&#1088;&#1080;&#1082;_&#1040;&#1085;&#1090;&#1086;&#1085;"><failure message="Failed comparison" type="failure" /></testcase></testsuite></testsuites>
