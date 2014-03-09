@@ -58,7 +58,7 @@ def connectAndSetup(lastChance = False):
     if not path.exists(resultsFolder):
         os.makedirs(resultsFolder)
     if not path.exists(config.IM_COMPARE_PATH):
-        print "ImageMagick Compare wasn't found at '%s'. Please set correct IM_COMPARE_PATH."%config.IM_COMPARE_PATH
+        print "ImageMagick Compare wasn't found at '%s'. Please set correct IM_COMPARE_PATH.\nImage magick can be donwloaded from http://www.imagemagick.org/script/download.php "%config.IM_COMPARE_PATH
         return None
     
     print "Waiting for device..."
@@ -87,8 +87,12 @@ def connectAndSetup(lastChance = False):
     if (runComponent is not None):
         packagePath = device.shell('pm path ' + config.BROWSER_TO_TEST.get("package"))
         if (not packagePath.startswith("package:")):
-            print "Browser '%s' is not installed. Unable to test."%config.BROWSER_TO_TEST.get("package")
-            return None;
+            if (config.BROWSER_TO_TEST == config.BROWSER_TEST):
+                print "Test browser is not installed.\nInstalling..."
+                device.installPackage(path.join(BASE_PATH, "assets/test-browser.apk"))
+            else:
+                print "Browser '%s' is not installed. Unable to test."%config.BROWSER_TO_TEST.get("package")
+                return None;
     
     return device
 

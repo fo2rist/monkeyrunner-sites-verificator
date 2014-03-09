@@ -8,14 +8,17 @@
 # Change any parameter to suit your needs.
 
 # Known browsers
+###Standard browser for emulator and some vendors.
 BROWSER_ANDROID = {"package":"com.android.browser",
                    "activity": "com.android.browser.BrowserActivity"}
+###Standard browser for latest android version for all Nexus devices
 BROWSER_CHROME = {"package":"com.android.chrome",
                    "activity": "com.google.android.apps.chrome.Main"}
 BROWSER_FIREFOX = {"package":"org.mozilla.firefox",
                    "activity": "org.mozilla.firefox.App"}
 BROWSER_OPERA = {"package":"com.opera.browser",
                    "activity": "com.opera.Opera"}
+###Special light-weight browser for tests, that can be automatically installed on any device.
 BROWSER_TEST = {"package":"com.github.fo2rist.testbrowser",
                    "activity": "com.github.fo2rist.testbrowser.MainActivity"}
 
@@ -26,9 +29,9 @@ BROWSER_TO_TEST = BROWSER_TEST
 
 ### Max count of scrolls/shots, allow to limit scrolling of infinite pages
 MAX_SHOTS_COUNT = 30
-### Max delta for first and last screens
+### Max allowed delta between two shots for first and last screens
 MAX_BOUNDARY_DELTA = 500
-### Max delta for screen in the middle
+### Max allowed delta between two shots for screen in the middle
 MAX_INTERMEDIATE_DELTA = 3500
 
 
