@@ -11,6 +11,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -146,6 +147,9 @@ public class MainActivity extends Activity {
 				setTitle(url);
 				isLoading_ = true;
 				invalidateOptionsMenu();
+				
+				InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+				imm.hideSoftInputFromWindow(addressLine_.getWindowToken(), 0);
 			}
 			
 			@Override
