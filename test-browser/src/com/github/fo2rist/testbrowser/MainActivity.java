@@ -182,7 +182,7 @@ public class MainActivity extends Activity {
 				if (actionId == EditorInfo.IME_ACTION_GO) {
 					String url = sender.getText().toString().trim();
 					if (!url.startsWith("http://") && !url.startsWith("https://")) {
-						url = url + "http://";
+						url = "http://" + url;
 					}
 					webView_.loadUrl(url);
 					return true;

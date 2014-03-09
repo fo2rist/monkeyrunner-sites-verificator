@@ -8,11 +8,11 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:hint="@string/blank"
-        android:background="@android:color/white"
+        android:background="@drawable/bg_address_line"
         android:minWidth="300dp"
         android:singleLine="true"
         android:inputType="textUri"
         android:imeOptions="actionGo"
-        android:textColor="@android:color/black" />
+        android:textColor="@android:color/primary_text_dark" />
 
 </LinearLayout>
